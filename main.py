@@ -2,19 +2,39 @@ import os
 import sys
 from dotenv import load_dotenv
 from google import genai
+from google.genai import types
 
-load_dotenv()
-api_key = os.environ.get("GEMINI_API_KEY")
 
-client = genai.Client(api_key=api_key)
-prompt = sys.argv[1]
+def main():
+    load_dotenv()
 
-def get_response(*args):
-    response = client.models.generate_content(
-    model="gemini-2.0-flash-001", contents=args
-    )
-    prompt_token_count = response.usage_metadata.prompt_token_count
-    candidates_token_count = response.usage_metadata.candidates_token_count
-    return f'{response.text}\nPrompt tokens: {prompt_token_count}\nResponse tokens: {candidates_token_count}'
+    args = sys.argv[1:]
+    
+    if not args:
+        print("AI Code Assistant")
+        print('\nUsage: python main.py "your prompt here"')
+        print('Example: python main.py "How do I create a notable resume?"')
+        sys.exit(1)
+    
+    user_prompt = " ".join(args)
+    api_key = os.environ.get("GEMINI_API_KEY")
 
-print(get_response(prompt))
+    client = genai.Client(api_key=api_key)
+
+    messages = [
+        types.Content(role="user", parts=[types.Part(text=user_prompt)]),
+    ]
+
+    get_response(client, messages)
+
+def get_response(client, messages):
+        print("Response:")
+        response = client.models.generate_content(
+        model="gemini-2.0-flash-001", contents=messages
+        )
+        prompt_token_count = response.usage_metadata.prompt_token_count
+        candidates_token_count = response.usage_metadata.candidates_token_count
+        print(f'{response.text}\nPrompt tokens: {prompt_token_count}\nResponse tokens: {candidates_token_count}')
+
+if __name__ == "__main__":
+     main()

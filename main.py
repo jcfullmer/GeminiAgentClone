@@ -25,16 +25,23 @@ def main():
         types.Content(role="user", parts=[types.Part(text=user_prompt)]),
     ]
 
-    get_response(client, messages)
-
-def get_response(client, messages):
-        print("Response:")
-        response = client.models.generate_content(
-        model="gemini-2.0-flash-001", contents=messages
-        )
+    response = get_response(client, messages,)
+    print("Response:")
+    print(response.text)
+    if "--verbose" in sys.argv:
         prompt_token_count = response.usage_metadata.prompt_token_count
         candidates_token_count = response.usage_metadata.candidates_token_count
-        print(f'{response.text}\nPrompt tokens: {prompt_token_count}\nResponse tokens: {candidates_token_count}')
+        print(f'User prompt: {user_prompt}\nPrompt tokens: {prompt_token_count}\nResponse tokens: {candidates_token_count}')
+
+
+
+def get_response(client, messages):
+    response = client.models.generate_content(
+    model="gemini-2.0-flash-001", contents=messages
+    )
+    prompt_token_count = response.usage_metadata.prompt_token_count
+    candidates_token_count = response.usage_metadata.candidates_token_count
+    return response
 
 if __name__ == "__main__":
      main()

@@ -5,11 +5,12 @@ from google import genai
 from google.genai import types
 
 
+
 def main():
     load_dotenv()
 
-    args = sys.argv[1:]
-    
+    #args = sys.argv[1:]
+    args = [arg for arg in sys.argv[1:] if not arg.startswith("--")]
     if not args:
         print("AI Code Assistant")
         print('\nUsage: python main.py "your prompt here"')

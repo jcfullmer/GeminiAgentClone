@@ -3,7 +3,17 @@ import sys
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
-import functions
+from functions.get_files_info import get_files_info
+from functions.get_file_content import get_file_content
+from functions.run_python_file import run_python_file
+from functions.write_file import write_file
+
+my_functions = {
+    "get_files_info": get_files_info,
+    "get_file_content": get_file_content,
+    "write_file": write_file,
+    "run_python_file": run_python_file,
+}
 
 
 system_prompt = """
@@ -48,30 +58,63 @@ def main():
     messages = [
         types.Content(role="user", parts=[types.Part(text=user_prompt)]),
     ]
+    for _ in range(20):
+        response = get_response(client, messages,)
+        for candidate in response.candidates:
+            messages.append(candidate.content)
+        if response.function_calls:
+            function_call_part = response.function_calls[0]
+            function_call_result = call_function(function_call_part,"--verbose" in sys.argv)
+            messages.append(function_call_result)
+            if function_call_result.parts and hasattr(function_call_result.parts[0], "function_response") and hasattr(function_call_result.parts[0].function_response, "response"):
+                if "--verbose" in sys.argv:
+                    print(f"-> {function_call_result.parts[0].function_response.response['result']}")
+            else:
+                raise Exception("ERROR: Function could not process.")
+        else:   
+            print("Response:")
+            print(response.text)
+            break
+        if "--verbose" in sys.argv:
+            prompt_token_count = response.usage_metadata.prompt_token_count
+            candidates_token_count = response.usage_metadata.candidates_token_count
+            print(f'User prompt: {user_prompt}\nPrompt tokens: {prompt_token_count}\nResponse tokens: {candidates_token_count}')
 
-    response = get_response(client, messages,)
-    if response.function_calls:
-        function_call_part = response.function_calls[0]
-        print(f"Calling function: {function_call_part.name}({function_call_part.args})")
-    else:   
-        print("Response:")
-        print(response.text)
-    if "--verbose" in sys.argv:
-        prompt_token_count = response.usage_metadata.prompt_token_count
-        candidates_token_count = response.usage_metadata.candidates_token_count
-        print(f'User prompt: {user_prompt}\nPrompt tokens: {prompt_token_count}\nResponse tokens: {candidates_token_count}')
 
-
-
-def get_response(client, messages):
+def     get_response(client, messages):
     response = client.models.generate_content(
     model=model_name,
     contents=messages,
     config=types.GenerateContentConfig(tools=[available_functions],system_instruction=system_prompt),
     )
-    prompt_token_count = response.usage_metadata.prompt_token_count
-    candidates_token_count = response.usage_metadata.candidates_token_count
     return response
+
+def call_function(function_call_part, verbose=False):
+    if verbose:
+        print(f"Calling function: {function_call_part.name}({function_call_part.args})")
+    
+    if function_call_part.name not in my_functions:
+        return types.Content(
+            role="tool",
+            parts=[
+                types.Part.from_function_response(
+                    name=function_call_part.name,
+                    response={"error": f"Unknown function: {function_name}"},
+                )
+            ],
+        )
+    function_name = my_functions[function_call_part.name]
+    function_call_part.args["working_directory"] = "./calculator"
+    function_result = function_name(**function_call_part.args)
+    return types.Content(
+        role="tool",
+        parts=[
+            types.Part.from_function_response(
+                name=function_call_part.name,
+                response={"result": function_result},
+            )
+        ],
+    )
 
 
 
@@ -146,5 +189,9 @@ available_functions = types.Tool(
     ]
 )
 
+
+
+
 if __name__ == "__main__":
      main()
+
